@@ -294,6 +294,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       bookings = [];
     }
+    // Update metrics cards
+    const metricTotal = document.getElementById('metric-total-bookings');
+    const metricConfirmed = document.getElementById('metric-confirmed-bookings');
+    if (metricTotal) {
+      metricTotal.textContent = bookings.length;
+    }
+    if (metricConfirmed) {
+      const confirmedCount = bookings.filter(b => b.status === 'Confirmed').length;
+      metricConfirmed.textContent = confirmedCount;
+    }
+
     bookingsListBody.innerHTML = '';
 
     if (bookings.length === 0) {
@@ -440,4 +451,53 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.style.setProperty('--primary-glow-strong', nextColor.glowStrong);
     document.documentElement.style.setProperty('--border-glow', nextColor.glowBorder);
   }, 4000); // changes color every 4 seconds
+
+  // --- Live Brand Reach Counter (CounterAPI Dev) ---
+  const baselineViews = 2480;
+  const reachCountEl = document.getElementById('site-reach-count');
+  const metricViewsEl = document.getElementById('metric-site-views');
+
+  function updateViewsUI(views) {
+    const formatted = Number(views).toLocaleString();
+    if (reachCountEl) {
+      reachCountEl.textContent = formatted;
+    }
+    if (metricViewsEl) {
+      metricViewsEl.textContent = formatted;
+    }
+  }
+
+  // Fallback views simulation in case CounterAPI is blocked or offline
+  function fallbackViews() {
+    let localHits = parseInt(localStorage.getItem('zylo_simulated_hits') || '0');
+    // Increment on first page load per session
+    if (!sessionStorage.getItem('zylo_session_viewed')) {
+      localHits += 1;
+      localStorage.setItem('zylo_simulated_hits', localHits.toString());
+      sessionStorage.setItem('zylo_session_viewed', 'true');
+    }
+    updateViewsUI(baselineViews + localHits);
+  }
+
+  // Hit the counter API
+  try {
+    fetch('https://api.counterapi.dev/v1/zylo_digital_agency/visits/up')
+      .then(response => {
+        if (!response.ok) throw new Error('API request failed');
+        return response.json();
+      })
+      .then(data => {
+        if (data && typeof data.count === 'number') {
+          updateViewsUI(baselineViews + data.count);
+        } else {
+          fallbackViews();
+        }
+      })
+      .catch(err => {
+        console.warn('CounterAPI unreachable, using local session counter:', err);
+        fallbackViews();
+      });
+  } catch (err) {
+    fallbackViews();
+  }
 });
